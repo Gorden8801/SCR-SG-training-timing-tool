@@ -1,0 +1,31 @@
+{
+    "name": "float-timer",
+  "version": "2.2.0",
+  "description": "SCR SG训练计时工具",
+  "main": "main.js",
+  "author": "Gorden",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win portable"
+  },
+  "devDependencies": {
+    "electron": "^30.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.local.floattimer",
+    "productName": "SCR SG训练计时工具",
+    "files": [
+      "main.js", 
+      "preload.js", 
+      "index.html", 
+      "selection.html", 
+      "icon.ico"
+    ],
+    "win": {
+      "target": ["portable"],
+      "icon": "icon.ico"
+    }
+  }
+}

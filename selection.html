@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<style>
+  html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; cursor: crosshair; background: #000; }
+  #bg { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: fill; user-select: none; pointer-events: none; display: none; }
+  #sel { position: absolute; display: none; border: 1.5px solid #ff6fa5; background: transparent; box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45); pointer-events: none; }
+  #hint { position: fixed; left: 50%; top: 18px; transform: translateX(-50%); background: rgba(0, 0, 0, 0.68); color: #fff; font-family: "PingFang SC", sans-serif; font-size: 12px; padding: 6px 14px; border-radius: 20px; pointer-events: none; user-select: none; white-space: nowrap; }
+  #size { position: absolute; display: none; background: rgba(0, 0, 0, 0.75); color: #fff; font-family: monospace; font-size: 11px; padding: 2px 6px; border-radius: 4px; pointer-events: none; white-space: nowrap; }
+  #toolbar { position: absolute; display: none; background: rgba(255, 255, 255, 0.95); padding: 6px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.3); gap: 6px; z-index: 999; }
+  #toolbar button { border: 0; border-radius: 5px; padding: 6px 12px; font-size: 12px; font-weight: bold; cursor: pointer; font-family: inherit; }
+  #btnConfirm { background: #e85a8e; color: #fff; }
+  #btnCancel { background: #f0f0f0; color: #666; }
+</style>
+</head>
+<body>
+<img id="bg" alt="">
+<div id="sel"></div>
+<div id="size"></div>
+<div id="hint">正在准备截图...</div>
+<div id="toolbar">
+  <button id="btnConfirm">确认保存 (Enter)</button>
+  <button id="btnCancel">重选 (Esc)</button>
+</div>
+<script>
+(function () {
+  const bg = document.getElementById('bg');
+  const sel = document.getElementById('sel');
+  const sizeEl = document.getElementById('size');
+  const hint = document.getElementById('hint');
+  const toolbar = document.getElementById('toolbar');
+
+  let ready = false, dragging = false, startX = 0, startY = 0;
+  let currentRect = null;
+
+  function resetSelection() {
+    sel.style.display = 'none'; sizeEl.style.display = 'none'; toolbar.style.display = 'none';
+    hint.style.display = 'block'; hint.textContent = '拖拽选择截图区域 · Esc 取消';
+    currentRect = null;
+  }
+
+  function loadImage(dataURL) {
+    ready = false; resetSelection();
+    bg.style.display = 'none';
+    bg.onload = function () { 
+      ready = true; 
+      bg.style.display = 'block'; 
+    };
+    bg.src = dataURL;
+  }
+
+  window.captureAPI.getBackground().then(function (res) { if (res && res.dataURL) loadImage(res.dataURL); });
+  if (window.captureAPI.onNewBackground) window.captureAPI.onNewBackground(function (dataURL) { loadImage(dataURL); });
+  if (window.captureAPI.onClear) window.captureAPI.onClear(function() { resetSelection(); bg.src = ''; });
+
+  function updateSel(x1, y1, x2, y2) {
+    const left = Math.min(x1, x2), top = Math.min(y1, y2);
+    const w = Math.abs(x2 - x1), h = Math.abs(y2 - y1);
+    sel.style.display = 'block'; sel.style.left = left + 'px'; sel.style.top = top + 'px'; sel.style.width = w + 'px'; sel.style.height = h + 'px';
+    sizeEl.style.display = 'block'; sizeEl.textContent = w + ' × ' + h; sizeEl.style.left = (x2 + 12) + 'px'; sizeEl.style.top = (y2 + 12) + 'px';
+  }
+
+  window.addEventListener('mousedown', function (e) {
+    if (!ready || e.button !== 0) return;
+    dragging = true; startX = e.clientX; startY = e.clientY;
+    updateSel(startX, startY, startX, startY);
+    hint.style.display = 'none'; toolbar.style.display = 'none';
+  });
+
+  window.addEventListener('mousemove', function (e) {
+    if (!dragging) return;
+    updateSel(startX, startY, e.clientX, e.clientY);
+  });
+
+  window.addEventListener('mouseup', function (e) {
+    if (!dragging) return;
+    dragging = false;
+    const left = Math.min(startX, e.clientX), top = Math.min(startY, e.clientY);
+    const w = Math.abs(e.clientX - startX), h = Math.abs(e.clientY - startY);
+    if (w < 4 || h < 4) { resetSelection(); return; }
+
+    currentRect = { xPct: left / window.innerWidth, yPct: top / window.innerHeight, wPct: w / window.innerWidth, hPct: h / window.innerHeight };
+
+    toolbar.style.display = 'flex';
+    let tbLeft = e.clientX + 10, tbTop = e.clientY + 10;
+    if (tbLeft + 180 > window.innerWidth) tbLeft = window.innerWidth - 190;
+    if (tbTop + 40 > window.innerHeight) tbTop = window.innerHeight - 50;
+    toolbar.style.left = tbLeft + 'px'; toolbar.style.top = tbTop + 'px';
+  });
+
+  document.getElementById('btnConfirm').addEventListener('click', function () {
+    if (currentRect) { window.captureAPI.sendRegion(currentRect); }
+  });
+
+  document.getElementById('btnCancel').addEventListener('click', function () { resetSelection(); });
+
+  window.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+      if (currentRect) resetSelection(); else window.captureAPI.cancel();
+    } else if (e.key === 'Enter' && currentRect) {
+      window.captureAPI.sendRegion(currentRect);
+    }
+  });
+  window.addEventListener('contextmenu', function (e) { e.preventDefault(); if (currentRect) resetSelection(); else window.captureAPI.cancel(); });
+})();
+</script>
+</body>
+</html>
